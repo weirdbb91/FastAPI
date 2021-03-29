@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import List, Set, Dict, Optional
 
 from enum import Enum
 
-from fastapi import Body, FastAPI, Path, Query
-from pydantic import BaseModel, Field
+from fastapi import Body, Coookie, FastAPI, Path, Query, Form
+from pydantic import BaseModel, HttpUrl, Field, EmailStr
 
 
 app = FastAPI()
@@ -15,16 +15,102 @@ class ModelName(str, Enum):
     lenet = "lenet"
 
 
+class Image(BaseModel):
+    url: HttpUrl
+    name: str
+
+
+# 클래스 내부 값에도 Field를 사용해 조건을 추가할 수 있음
 class Item(BaseModel):
+    name: str
+    description: Optional[str] = Field(
+        None, title="The description of the item", max_length=300
+    )
+    price: float = Field(..., gt=0, description="The price must be greater than zero")
+    tax: Optional[float] = None
+    tags: Set[str] = []
+    image: Optional[List[Image]] = None
+
+
+class Offer(BaseModel):
     name: str
     description: Optional[str] = None
     price: float
-    tax: Optional[float] = None
+    items: List[Item]
 
 
 class User(BaseModel):
     username: str
     full_name: Optional[str] = None
+
+
+class UserIn(BaseModel):
+    username: str
+    password: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+
+class UserOut(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+
+@app.post("/login/")
+async def login(username: str = Form(...), password: str = Form(...)):
+    return {"username": username}
+
+
+# 코드 재사용 : 클래스
+# class Animal(BaseModel):
+#     name: str = Field(..., min_length=1, max_length=10)
+#     height: int = Field(..., gt=0, le=1000)
+#
+#
+# class Rabbit(Animal):
+#     speed: int = Field(..., ge=0)
+#
+#
+# class Abalone(Animal):
+#     pass
+
+
+# Response Model 객체 형태로 반환
+# In 클래스로 비밀번호를 포함해 받아 Out 클래스로 비밀번호를 제외해 반환
+# response_model_exclude_unset 옵션으로 default 값으로 초기화 대신 실제 입력된 값만 받음
+@app.post("/user/", response_model=UserOut, response_model_exclude_unset=True)
+async def create_user(user: UserIn):
+    return user
+
+
+# @app.get("/items/")
+# 쿠키 파라미터
+# async def read_items(ads_id: Optional[str] = Cookie(None)):
+# 헤더 파라미터
+# _ to -, case-insensitive 옵션을 끄려면 Header(None, convert_underscores=False)
+# async def read_items(user_agent: Optional[str] = Header(None)):
+# 중복 헤더
+# async def read_items(x_token: Optional[List[str]] = Header(None)):
+#     return {"X-Token values": x_token}
+# 중복 헤더 결과물
+# X-Token: foo
+# X-Token: bar
+
+
+@app.post("/index-weights/")
+async def create_index_weights(weights: Dect[int, float]):
+    return weights
+
+
+@app.post("/images/multiple/")
+async def create_multiple_images(*, images: List[Image]):
+    return images
+
+
+@app.post("/offers/")
+async def create_offer(offer: Offer):
+    return offer
 
 
 # Body값으로 받는 클래스 파라미터를 해당 자료형 이름으로
