@@ -2,11 +2,38 @@ from typing import List, Set, Dict, Optional
 
 from enum import Enum
 
-from fastapi import Body, Coookie, FastAPI, Path, Query, Form
+from fastapi import Body, Coookie, FastAPI, Path, Query, Form, File, UploadFile, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, HttpUrl, Field, EmailStr
 
 
+# 커스텀 예외 설정 1
+class UnicornException(Exception):
+    def __init__(self, name: str):
+        self.name = name
+
+
 app = FastAPI()
+
+
+# 커스텀 예외 설정 2
+@app.exception_handler(UnicornException)
+async def unicorn_exception_handler(request: Request, exc: UnicornException):
+    return JSONResponse(
+        status_code=418,
+        content={"message": f"The {exc.name} went wrong"}
+    )
+
+
+# 커스텀 예외 처리
+# raise UnicornException("System")
+# 일반 예외 처리
+# raise HttPException(
+#     status_code=404,
+#     detail="Something wrong exception",
+#     headers={"X-Error": "There goes my error"},  # custom header
+# )
 
 
 class ModelName(str, Enum):
@@ -55,6 +82,31 @@ class UserOut(BaseModel):
     username: str
     email: EmailStr
     full_name: Optional[str] = None
+
+
+class JSONableItem(BaseModel):
+    title: str
+    timestamp: datatime
+    description: Optional[str] = None
+
+
+# JSON 형식으로 인코딩
+@app.put("/items/{id}", response_model=JSONableItem)
+def update_item(item_id: str, item: JSONableItem):
+    update_item_encoded = jsonable_encoder(JSONableItem)
+    fake_db[item_id] = update_item_encoded
+    return update_item_encoded
+
+
+# 원하는 부분만 업데이트 (patch + exclude_unset)
+# @app.patch("/items/{item_id}", response_model=Item)
+# async def update_item(item_id: str, item: Item):
+#     stored_item_data = items[item_id]
+#     stored_item_model = Item(**stored_item_data)
+#     update_data = item.dict(exclude_unset=True)  # exclude_unset을 이용
+#     updated_item = stored_item_model.copy(update=update_data)
+#     items[item_id] = jsonable_encoder(updated_item)
+#     return updated_item
 
 
 @app.post("/login/")
